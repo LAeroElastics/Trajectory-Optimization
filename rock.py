@@ -41,19 +41,56 @@ md.y = Var(md.i, initialize=0.0)
 md.beta = Var(md.i, initialize=0.0)
 md.u = Var(md.i, initialize=10.0, bounds=(0.0, 50.0))
 md.v = Var(md.i, initialize=10.0, bounds=(-1000.0, 1000.0))
-md.F = Var(md.i, initialize=0.0)
+md.Ft = Var(md.i, initialize=0.0)
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
+md.rho = Var(md.i, initialize=1.2, bounds=(1.2, 1.2))
+md.mass = Var(md.i, initialize=100.0, bounds=(50.0, 100.0))
 md.ax = Var(md.i, initialize=0.0)
 md.ay = Var(md.i, initialize=0.0)
-
+md.alpha = Var(md.i, initialize=0.0, bounds=(-90.0 * 3.14 / 180.0, 90.0 * 3.14 / 180.0))
 # Objective Function
 md.obj = Objective(expr=md.t_final, sense=minimize)
+
+md.CA = Var(md.i, initialize=0.3, within=PositiveReals)
+md.CN = Var(md.i, initialize=0.3, within=PositiveReals)
+md.Vm = Var(md.i, initialize=0.0)
+
+md.CA_base = Param(initialize=0.3)
+md.CA_alpha = Param(initialize=0.25)
+md.CN_base = Param(initialize=0.3)
+md.CN_alpha = Param(initialize=1.75)
+md.alpha_max = Param(initialize=10.0)
+
+
+def CA_rule(m):
+    return m.CA[m.i] == (m.CA_base + m.CA_alpha * m.alpha[m.i] / m.alpha_max)
+
+
+md.CAcon = Constraint(rule=CA_rule)
+
+
+def CN_rule(m):
+    return m.CN[m.i] == (m.CN_base + m.CN_alpha * m.alpha[m.i] / m.alpha_max)
+
+
+md.CNcon = Constraint(rule=CN_rule)
+
+
+def Vm_rule(m):
+    return m.Vm[m.i] == (sqrt(m.u[m.i] ** 2.0 + m.v[m.i] ** 2.0))
+
+
+md.Vmcon = Constraint(rule=Vm_rule)
+
+md.c0 = Param(initialize=0.5)
 
 
 # Dynamics
 def ax_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.ax[i] == 0.0
+    return m.ax[i] == (
+            m.Ft[i] - m.c0 * m.rho[i] * m.Vm[i] * m.CA[i] - m.mass[i] * m.g0[i] * sin(m.beta[i])) / \
+           m.mass[i]
 
 
 md._ax = Constraint(md.i, rule=ax_rule)
@@ -61,7 +98,8 @@ md._ax = Constraint(md.i, rule=ax_rule)
 
 def ay_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.ay[i] == -m.g0[i]
+    return m.ay[i] == (m.c0 * m.rho[i] * m.Vm[i] * m.CN[i] - m.mass[i] * m.g0[i] * cos(m.beta[i])) / \
+           m.mass[i]
 
 
 md._ay = Constraint(md.i, rule=ay_rule)
@@ -98,6 +136,7 @@ def y_rule(m, i):
 
 md._y = Constraint(md.i, rule=y_rule)
 
+
 # Constraints
 def conlist_rule(m):
     yield m.x[0] == 0
@@ -114,14 +153,13 @@ def conlist_rule(m):
 
 md.conlist = ConstraintList(rule=conlist_rule(md))
 
-
 # Solver Controls
 disc = TransformationFactory("dae.collocation")
 disc.apply_to(md, scheme="LAGRANGE-LEGENDRE")
 
 solver = SolverFactory("ipopt")
-results = solver.solve(md)
 md.display()
+results = solver.solve(md)
 
 # Display Results
 x = [md.x[i].value for i in md.i]
@@ -130,8 +168,6 @@ u = [md.u[i].value for i in md.i]
 v = [md.v[i].value for i in md.i]
 beta = [md.beta[i].value for i in md.i]
 g = [md.g0[i].value for i in md.i]
-
-
 
 print(beta[0] * 180.0 / 3.14)
 
