@@ -4,7 +4,7 @@ from pyomo.dae import *
 import matplotlib.pyplot as plt
 
 """
-    2D ball throwing under gravity 
+    2D projectile flight 
 """
 
 # Simulation Params
@@ -14,6 +14,7 @@ div_size = 100  # Number of divide points
 md = ConcreteModel()  # Concrete model for ODE
 md.N = Param(initialize=div_size)  # Number of divide points
 md.t_final = Var(initialize=20.0, within=PositiveReals)  # Time of Flight
+md.t_sp = Param(initialize=5.0)  #
 md.dt = Var(initialize=0.1, within=PositiveReals)  # Delta T
 
 
@@ -42,9 +43,11 @@ md.beta = Var(md.i, initialize=0.0)
 md.u = Var(md.i, initialize=10.0, bounds=(0.0, 50.0))
 md.v = Var(md.i, initialize=10.0, bounds=(-1000.0, 1000.0))
 md.Ft = Var(md.i, initialize=0.0)
+md.Isp = Var(md.i, initialize=100.0, bounds=(100.0, 100.0))
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
 md.rho = Var(md.i, initialize=1.2, bounds=(1.2, 1.2))
 md.mass = Var(md.i, initialize=100.0, bounds=(50.0, 100.0))
+md.delta_mass = Var(md.i, initialize=0.1, bounds=(0.0, 2000.0))  # mass fluctuation
 md.ax = Var(md.i, initialize=0.0)
 md.ay = Var(md.i, initialize=0.0)
 md.alpha = Var(md.i, initialize=0.0, bounds=(-90.0 * 3.14 / 180.0, 90.0 * 3.14 / 180.0))
@@ -60,29 +63,50 @@ md.CA_alpha = Param(initialize=0.25)
 md.CN_base = Param(initialize=0.3)
 md.CN_alpha = Param(initialize=1.75)
 md.alpha_max = Param(initialize=10.0)
-
-
-def CA_rule(m):
-    return m.CA[m.i] == (m.CA_base + m.CA_alpha * m.alpha[m.i] / m.alpha_max)
-
-
-md.CAcon = Constraint(rule=CA_rule)
-
-
-def CN_rule(m):
-    return m.CN[m.i] == (m.CN_base + m.CN_alpha * m.alpha[m.i] / m.alpha_max)
-
-
-md.CNcon = Constraint(rule=CN_rule)
-
-
-def Vm_rule(m):
-    return m.Vm[m.i] == (sqrt(m.u[m.i] ** 2.0 + m.v[m.i] ** 2.0))
-
-
-md.Vmcon = Constraint(rule=Vm_rule)
+md.delta_mass_max = Param(initialize=2.0)
 
 md.c0 = Param(initialize=0.5)
+md.zero = Param(initialize=0.0)
+
+def delta_mass_rule(m, i):
+    if (value(i * m.dt) <= value(m.t_sp)):
+        return m.delta_mass[i] == m.delta_mass_max
+    else:
+        return m.delta_mass[i] == m.zero
+
+md.delta_masscon = Constraint(md.i, rule=delta_mass_rule)
+
+def mass_rule(m, i):
+    return m.mass[i] == m.mass[i] - m.delta_mass[i]
+
+
+md.masscon = Constraint(md.i, rule=mass_rule)
+
+
+def Ft_tule(m, i):
+    return m.Ft[i] == m.delta_mass[i] * m.Isp[i] * m.g0[i]
+
+
+def CA_rule(m, i):
+    return m.CA[i] == (m.CA_base + m.CA_alpha * m.alpha[i] / m.alpha_max)
+
+
+md.CAcon = Constraint(md.i, rule=CA_rule)
+
+
+def CN_rule(m, i):
+    return m.CN[i] == (m.CN_base + m.CN_alpha * m.alpha[i] / m.alpha_max)
+
+
+md.CNcon = Constraint(md.i, rule=CN_rule)
+
+
+def Vm_rule(m, i):
+    return m.Vm[i] == (sqrt(m.u[i] ** 2.0 + m.v[i] ** 2.0))
+
+
+md.Vmcon = Constraint(md.i, rule=Vm_rule)
+
 
 
 # Dynamics
@@ -140,8 +164,8 @@ md._y = Constraint(md.i, rule=y_rule)
 # Constraints
 def conlist_rule(m):
     yield m.x[0] == 0
-    yield m.x[100] == 100
-    yield m.y[0] == 0
+    yield m.x[100] == 10000
+    yield m.y[0] == 100
     yield m.y[100] == 0
     yield m.u[0] == 100
     # yield m.u[100] == 20
@@ -171,8 +195,5 @@ g = [md.g0[i].value for i in md.i]
 
 print(beta[0] * 180.0 / 3.14)
 
-plt.plot(x, y)
-plt.show()
-
-plt.plot(g)
+plt.plot(u)
 plt.show()
