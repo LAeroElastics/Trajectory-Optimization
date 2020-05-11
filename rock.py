@@ -1,6 +1,7 @@
 from pyomo.environ import *
 from pyomo.dae import *
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 """
@@ -122,7 +123,7 @@ md.Vmcon = Constraint(md.i, rule=Vm_rule)
 def ax_rule(m, i):
     if i == 0: return Constraint.Skip
     return m.ax[i] == (
-            m.Ft[i] - m.c0 * m.rho[i] * m.Vm[i] * m.CA[i] - m.mass[i] * m.g0[i] * sin(m.beta[i])) / \
+            m.Ft[i] - m.c0 * m.rho[i] * m.Vm[i] * m.Vm[i] * m.CA[i] - m.mass[i] * m.g0[i] * sin(m.beta[i])) / \
            m.mass[i]
 
 
@@ -131,7 +132,7 @@ md._ax = Constraint(md.i, rule=ax_rule)
 
 def ay_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.ay[i] == (m.c0 * m.rho[i] * m.Vm[i] * m.CN[i] - m.mass[i] * m.g0[i] * cos(m.beta[i])) / \
+    return m.ay[i] == (m.c0 * m.rho[i] * m.Vm[i] * m.Vm[i] * m.CN[i] - m.mass[i] * m.g0[i] * cos(m.beta[i])) / \
            m.mass[i]
 
 
@@ -209,5 +210,5 @@ print(beta[0] * 180.0 / 3.14)
 plt.plot(x, y)
 plt.show()
 
-plt.plot(m)
+plt.plot(u)
 plt.show()
