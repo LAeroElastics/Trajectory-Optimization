@@ -39,19 +39,19 @@ def i_init(m):
 md.i = Set(initialize=i_init, ordered=True)
 
 md.x = Var(md.i, initialize=0.0)
-md.y = Var(md.i, initialize=0.0)
-md.beta = Var(md.i, initialize=90.0 * 3.14 / 180.0)
+md.y = Var(md.i, initialize=0.0, bounds=(0.0, 30000))
+md.beta = Var(md.i, initialize=90.0 * 3.14 / 180.0, bounds=(-90.0*3.14/180.0, 90.0*3.14/180.0))
 md.u = Var(md.i, initialize=10.0, bounds=(0.0, 50.0))
 md.v = Var(md.i, initialize=10.0, bounds=(-1000.0, 1000.0))
 md.Ft = Var(md.i, initialize=0.0)
-md.Isp = Var(md.i, initialize=100.0, bounds=(100.0, 100.0))
+md.Isp = Var(md.i, initialize=200.0, bounds=(200.0, 200.0))
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
 md.rho = Var(md.i, initialize=1.2, bounds=(1.2, 1.2))
-md.mass = Var(md.i, initialize=100.0, bounds=(0.0, 1000.0))
-md.delta_mass = Var(md.i, initialize=0.1, bounds=(0.0, 2000.0))  # mass fluctuation
+md.mass = Var(md.i, initialize=50.0, bounds=(0.0, 1000.0))
+md.delta_mass = Var(md.i, initialize=100.0, bounds=(0.0, 100.0))  # mass fluctuation
 md.ax = Var(md.i, initialize=0.0)
 md.ay = Var(md.i, initialize=0.0)
-md.alpha = Var(md.i, initialize=0.0, bounds=(-90.0 * 3.14 / 180.0, 90.0 * 3.14 / 180.0))
+md.alpha = Var(md.i, initialize=0.0, bounds=(-5.0 * 3.14 / 180.0, 5.0 * 3.14 / 180.0))
 
 # Objective Function
 md.obj = Objective(expr=md.t_final, sense=minimize)
@@ -63,9 +63,9 @@ md.Vm = Var(md.i, initialize=0.0)
 md.CA_base = Param(initialize=0.3)
 md.CA_alpha = Param(initialize=0.25)
 md.CN_base = Param(initialize=0.3)
-md.CN_alpha = Param(initialize=1.75)
+md.CN_alpha = Param(initialize=3.75)
 md.alpha_max = Param(initialize=10.0)
-md.delta_mass_max = Param(initialize=10.0)
+md.delta_mass_max = Param(initialize=100.0)
 
 md.c0 = Param(initialize=0.5)
 md.zero = Param(initialize=0.0)
@@ -93,7 +93,7 @@ md.masscon = Constraint(md.i, rule=mass_rule)
 
 
 def Ft_rule(m, i):
-    return m.Ft[i] == m.delta_mass[i] * m.Isp[i] * m.g0[i]
+    return m.Ft[i] == m.delta_mass[i] * md.dt * m.Isp[i] * m.g0[i]
 
 
 md.Ftcon = Constraint(md.i, rule=Ft_rule)
@@ -176,12 +176,12 @@ def conlist_rule(m):
     yield m.x[0] == 0
     yield m.x[100] == 10000
     yield m.y[0] == 0
-    yield m.y[100] == 10000
+    yield m.y[100] == 100.0
     yield m.u[0] == 0.0
     # yield m.u[100] == 20
-    yield m.v[0] == 0.0
+    yield m.v[0] == 0.01
     # yield m.v[100] == 30
-    # yield m.beta[0] == 3.14 / 180.0 * 45.0
+    yield m.beta[0] == 3.14 / 180.0 * 89.9
     yield ConstraintList.End
 
 
@@ -192,8 +192,9 @@ disc = TransformationFactory("dae.collocation")
 disc.apply_to(md, scheme="LAGRANGE-LEGENDRE")
 
 solver = SolverFactory("ipopt")
-md.display()
 results = solver.solve(md)
+#md.display()
+print(results)
 
 # Display Results
 x = [md.x[i].value for i in md.i]
@@ -203,6 +204,8 @@ v = [md.v[i].value for i in md.i]
 beta = [md.beta[i].value for i in md.i]
 m = [md.mass[i].value for i in md.i]
 dm = [md.delta_mass[i].value for i in md.i]
+Vm = [md.Vm[i].value for i in md.i]
+Ft = [md.Ft[i].value for i in md.i]
 g = [md.g0[i].value for i in md.i]
 
 print(beta[0] * 180.0 / 3.14)
@@ -210,5 +213,5 @@ print(beta[0] * 180.0 / 3.14)
 plt.plot(x, y)
 plt.show()
 
-plt.plot(u)
+plt.plot(beta)
 plt.show()
