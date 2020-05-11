@@ -15,7 +15,7 @@ div_size = 100  # Number of divide points
 md = ConcreteModel()  # Concrete model for ODE
 md.N = Param(initialize=div_size)  # Number of divide points
 md.t_final = Var(initialize=20.0, within=PositiveReals)  # Time of Flight
-md.t_sp = Param(initialize=5.0)  #
+md.t_sp = Param(initialize=15.0)  #
 md.dt = Var(initialize=0.1, within=PositiveReals)  # Delta T
 
 
@@ -39,15 +39,15 @@ def i_init(m):
 md.i = Set(initialize=i_init, ordered=True)
 
 md.x = Var(md.i, initialize=0.0)
-md.y = Var(md.i, initialize=0.0, bounds=(0.0, 30000))
-md.beta = Var(md.i, initialize=90.0 * 3.14 / 180.0, bounds=(-90.0*3.14/180.0, 90.0*3.14/180.0))
-md.u = Var(md.i, initialize=10.0, bounds=(0.0, 50.0))
+md.y = Var(md.i, initialize=0.0, bounds=(0.0, 20000))
+md.beta = Var(md.i, initialize=90.0 * 3.14 / 180.0, bounds=(-90.0 * 3.14 / 180.0, 90.0 * 3.14 / 180.0))
+md.u = Var(md.i, initialize=10.0, bounds=(0.0, 1e23))
 md.v = Var(md.i, initialize=10.0, bounds=(-1000.0, 1000.0))
-md.Ft = Var(md.i, initialize=0.0)
+md.Ft = Var(md.i, initialize=0.0, bounds=(0.0, 1e23))
 md.Isp = Var(md.i, initialize=200.0, bounds=(200.0, 200.0))
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
 md.rho = Var(md.i, initialize=1.2, bounds=(1.2, 1.2))
-md.mass = Var(md.i, initialize=50.0, bounds=(0.0, 1000.0))
+md.mass = Var(md.i, initialize=50.0, bounds=(500.0, 1000.0))
 md.delta_mass = Var(md.i, initialize=100.0, bounds=(0.0, 100.0))  # mass fluctuation
 md.ax = Var(md.i, initialize=0.0)
 md.ay = Var(md.i, initialize=0.0)
@@ -60,12 +60,12 @@ md.CA = Var(md.i, initialize=0.3, within=PositiveReals)
 md.CN = Var(md.i, initialize=0.3, within=PositiveReals)
 md.Vm = Var(md.i, initialize=0.0)
 
-md.CA_base = Param(initialize=0.3)
-md.CA_alpha = Param(initialize=0.25)
+md.CA_base = Param(initialize=0.03)
+md.CA_alpha = Param(initialize=0.5)
 md.CN_base = Param(initialize=0.3)
-md.CN_alpha = Param(initialize=3.75)
-md.alpha_max = Param(initialize=10.0)
-md.delta_mass_max = Param(initialize=100.0)
+md.CN_alpha = Param(initialize=1.75)
+md.alpha_max = Param(initialize=5.0)
+md.delta_mass_max = Param(initialize=30.0)
 
 md.c0 = Param(initialize=0.5)
 md.zero = Param(initialize=0.0)
@@ -97,6 +97,7 @@ def Ft_rule(m, i):
 
 
 md.Ftcon = Constraint(md.i, rule=Ft_rule)
+
 
 def CA_rule(m, i):
     return m.CA[i] == (m.CA_base + m.CA_alpha * m.alpha[i] / m.alpha_max)
@@ -175,8 +176,8 @@ md._y = Constraint(md.i, rule=y_rule)
 def conlist_rule(m):
     yield m.x[0] == 0
     yield m.x[100] == 10000
-    yield m.y[0] == 0
-    yield m.y[100] == 100.0
+    yield m.y[0] == 0.0
+    yield m.y[100] == 0.0
     yield m.u[0] == 0.0
     # yield m.u[100] == 20
     yield m.v[0] == 0.01
@@ -193,7 +194,7 @@ disc.apply_to(md, scheme="LAGRANGE-LEGENDRE")
 
 solver = SolverFactory("ipopt")
 results = solver.solve(md)
-#md.display()
+# md.display()
 print(results)
 
 # Display Results
