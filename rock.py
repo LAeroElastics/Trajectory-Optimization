@@ -46,7 +46,7 @@ md.Ft = Var(md.i, initialize=0.0)
 md.Isp = Var(md.i, initialize=100.0, bounds=(100.0, 100.0))
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
 md.rho = Var(md.i, initialize=1.2, bounds=(1.2, 1.2))
-md.mass = Var(md.i, initialize=100.0, bounds=(50.0, 100.0))
+md.mass = Var(md.i, initialize=100.0, bounds=(0.0, 100.0))
 md.delta_mass = Var(md.i, initialize=0.1, bounds=(0.0, 2000.0))  # mass fluctuation
 md.ax = Var(md.i, initialize=0.0)
 md.ay = Var(md.i, initialize=0.0)
@@ -63,7 +63,7 @@ md.CA_alpha = Param(initialize=0.25)
 md.CN_base = Param(initialize=0.3)
 md.CN_alpha = Param(initialize=1.75)
 md.alpha_max = Param(initialize=10.0)
-md.delta_mass_max = Param(initialize=2.0)
+md.delta_mass_max = Param(initialize=0.1)
 
 md.c0 = Param(initialize=0.5)
 md.zero = Param(initialize=0.0)
@@ -77,7 +77,11 @@ def delta_mass_rule(m, i):
 md.delta_masscon = Constraint(md.i, rule=delta_mass_rule)
 
 def mass_rule(m, i):
-    return m.mass[i] == m.mass[i] - m.delta_mass[i]
+    if i == 0: return Constraint.Skip
+    if(value(m.delta_mass[i]) == md.zero):
+        return m.mass[i] == m.mass[i-1]
+    else:
+        return m.mass[i] == m.mass[i-1] - m.delta_mass[i] * md.dt
 
 
 md.masscon = Constraint(md.i, rule=mass_rule)
@@ -191,9 +195,11 @@ y = [md.y[i].value for i in md.i]
 u = [md.u[i].value for i in md.i]
 v = [md.v[i].value for i in md.i]
 beta = [md.beta[i].value for i in md.i]
+m = [md.mass[i].value for i in md.i]
+dm = [md.delta_mass[i].value for i in md.i]
 g = [md.g0[i].value for i in md.i]
 
 print(beta[0] * 180.0 / 3.14)
 
-plt.plot(u)
+plt.plot(x, y)
 plt.show()
