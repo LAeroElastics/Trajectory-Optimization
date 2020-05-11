@@ -39,18 +39,19 @@ md.i = Set(initialize=i_init, ordered=True)
 
 md.x = Var(md.i, initialize=0.0)
 md.y = Var(md.i, initialize=0.0)
-md.beta = Var(md.i, initialize=0.0)
+md.beta = Var(md.i, initialize=90.0 * 3.14 / 180.0)
 md.u = Var(md.i, initialize=10.0, bounds=(0.0, 50.0))
 md.v = Var(md.i, initialize=10.0, bounds=(-1000.0, 1000.0))
 md.Ft = Var(md.i, initialize=0.0)
 md.Isp = Var(md.i, initialize=100.0, bounds=(100.0, 100.0))
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
 md.rho = Var(md.i, initialize=1.2, bounds=(1.2, 1.2))
-md.mass = Var(md.i, initialize=100.0, bounds=(0.0, 100.0))
+md.mass = Var(md.i, initialize=100.0, bounds=(0.0, 1000.0))
 md.delta_mass = Var(md.i, initialize=0.1, bounds=(0.0, 2000.0))  # mass fluctuation
 md.ax = Var(md.i, initialize=0.0)
 md.ay = Var(md.i, initialize=0.0)
 md.alpha = Var(md.i, initialize=0.0, bounds=(-90.0 * 3.14 / 180.0, 90.0 * 3.14 / 180.0))
+
 # Objective Function
 md.obj = Objective(expr=md.t_final, sense=minimize)
 
@@ -63,33 +64,38 @@ md.CA_alpha = Param(initialize=0.25)
 md.CN_base = Param(initialize=0.3)
 md.CN_alpha = Param(initialize=1.75)
 md.alpha_max = Param(initialize=10.0)
-md.delta_mass_max = Param(initialize=0.1)
+md.delta_mass_max = Param(initialize=10.0)
 
 md.c0 = Param(initialize=0.5)
 md.zero = Param(initialize=0.0)
 
+
 def delta_mass_rule(m, i):
-    if (value(i * m.dt) <= value(m.t_sp)):
+    if value(i * m.dt) <= value(m.t_sp):
         return m.delta_mass[i] == m.delta_mass_max
     else:
         return m.delta_mass[i] == m.zero
 
+
 md.delta_masscon = Constraint(md.i, rule=delta_mass_rule)
+
 
 def mass_rule(m, i):
     if i == 0: return Constraint.Skip
-    if(value(m.delta_mass[i]) == md.zero):
-        return m.mass[i] == m.mass[i-1]
+    if value(m.delta_mass[i]) == md.zero:
+        return m.mass[i] == m.mass[i - 1]
     else:
-        return m.mass[i] == m.mass[i-1] - m.delta_mass[i] * md.dt
+        return m.mass[i] == m.mass[i - 1] - m.delta_mass[i] * md.dt
 
 
 md.masscon = Constraint(md.i, rule=mass_rule)
 
 
-def Ft_tule(m, i):
+def Ft_rule(m, i):
     return m.Ft[i] == m.delta_mass[i] * m.Isp[i] * m.g0[i]
 
+
+md.Ftcon = Constraint(md.i, rule=Ft_rule)
 
 def CA_rule(m, i):
     return m.CA[i] == (m.CA_base + m.CA_alpha * m.alpha[i] / m.alpha_max)
@@ -110,7 +116,6 @@ def Vm_rule(m, i):
 
 
 md.Vmcon = Constraint(md.i, rule=Vm_rule)
-
 
 
 # Dynamics
@@ -169,11 +174,11 @@ md._y = Constraint(md.i, rule=y_rule)
 def conlist_rule(m):
     yield m.x[0] == 0
     yield m.x[100] == 10000
-    yield m.y[0] == 100
-    yield m.y[100] == 0
-    yield m.u[0] == 100
+    yield m.y[0] == 0
+    yield m.y[100] == 10000
+    yield m.u[0] == 0.0
     # yield m.u[100] == 20
-    yield m.v[0] == 100
+    yield m.v[0] == 0.0
     # yield m.v[100] == 30
     # yield m.beta[0] == 3.14 / 180.0 * 45.0
     yield ConstraintList.End
@@ -202,4 +207,7 @@ g = [md.g0[i].value for i in md.i]
 print(beta[0] * 180.0 / 3.14)
 
 plt.plot(x, y)
+plt.show()
+
+plt.plot(m)
 plt.show()
