@@ -14,8 +14,8 @@ div_size = 100  # Number of divide points
 # Model Definitions
 md = ConcreteModel()  # Concrete model for ODE
 md.N = Param(initialize=div_size)  # Number of divide points
-md.t_final = Var(initialize=20.0, within=PositiveReals)  # Time of Flight
-md.t_sp = Param(initialize=15.0)  #
+md.t_final = Var(initialize=30.0, within=PositiveReals)  # Time of Flight
+md.t_sp = Param(initialize=10.0)  #
 md.dt = Var(initialize=0.1, within=PositiveReals)  # Delta T
 
 
@@ -38,20 +38,20 @@ def i_init(m):
 
 md.i = Set(initialize=i_init, ordered=True)
 
-md.x = Var(md.i, initialize=0.0)
+md.x = Var(md.i, initialize=0.0, bounds=(0.0, 10000))
 md.y = Var(md.i, initialize=0.0, bounds=(0.0, 20000))
-md.beta = Var(md.i, initialize=90.0 * 3.14 / 180.0, bounds=(-90.0 * 3.14 / 180.0, 90.0 * 3.14 / 180.0))
+md.beta = Var(md.i, initialize=89.99 * 3.14 / 180.0, bounds=(-89.999 * 3.14 / 180.0, 89.999 * 3.14 / 180.0))
 md.u = Var(md.i, initialize=10.0, bounds=(0.0, 1e23))
 md.v = Var(md.i, initialize=10.0, bounds=(-1000.0, 1000.0))
 md.Ft = Var(md.i, initialize=0.0, bounds=(0.0, 1e23))
 md.Isp = Var(md.i, initialize=200.0, bounds=(200.0, 200.0))
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
 md.rho = Var(md.i, initialize=1.2, bounds=(1.2, 1.2))
-md.mass = Var(md.i, initialize=50.0, bounds=(500.0, 1000.0))
-md.delta_mass = Var(md.i, initialize=100.0, bounds=(0.0, 100.0))  # mass fluctuation
-md.ax = Var(md.i, initialize=0.0)
-md.ay = Var(md.i, initialize=0.0)
-md.alpha = Var(md.i, initialize=0.0, bounds=(-5.0 * 3.14 / 180.0, 5.0 * 3.14 / 180.0))
+md.mass = Var(md.i, initialize=50.0, bounds=(250.0, 500.0))
+md.delta_mass = Var(md.i, initialize=15.0, bounds=(0.0, 15.0))  # mass fluctuation
+md.ax = Var(md.i, initialize=0.0, bounds=(-100.0, 100.0))  # G-limit(Axial)
+md.ay = Var(md.i, initialize=0.0, bounds=(-100.0, 100.0))  # G-limit(Normal)
+md.alpha = Var(md.i, initialize=0.0, bounds=(-10.0 * 3.14 / 180.0, 10.0 * 3.14 / 180.0))
 
 # Objective Function
 md.obj = Objective(expr=md.t_final, sense=minimize)
@@ -60,12 +60,12 @@ md.CA = Var(md.i, initialize=0.3, within=PositiveReals)
 md.CN = Var(md.i, initialize=0.3, within=PositiveReals)
 md.Vm = Var(md.i, initialize=0.0)
 
-md.CA_base = Param(initialize=0.03)
+md.CA_base = Param(initialize=0.3)
 md.CA_alpha = Param(initialize=0.5)
 md.CN_base = Param(initialize=0.3)
 md.CN_alpha = Param(initialize=1.75)
-md.alpha_max = Param(initialize=5.0)
-md.delta_mass_max = Param(initialize=30.0)
+md.alpha_max = Param(initialize=10.0)
+md.delta_mass_max = Param(initialize=15.0)
 
 md.c0 = Param(initialize=0.5)
 md.zero = Param(initialize=0.0)
@@ -133,7 +133,7 @@ md._ax = Constraint(md.i, rule=ax_rule)
 
 def ay_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.ay[i] == (m.c0 * m.rho[i] * m.Vm[i] * m.Vm[i] * m.CN[i] - m.mass[i] * m.g0[i] * cos(m.beta[i])) / \
+    return m.ay[i] == (-m.c0 * m.rho[i] * m.Vm[i] * m.Vm[i] * m.CN[i] + m.mass[i] * m.g0[i] * cos(m.beta[i])) / \
            m.mass[i]
 
 
@@ -177,12 +177,12 @@ def conlist_rule(m):
     yield m.x[0] == 0
     yield m.x[100] == 10000
     yield m.y[0] == 0.0
-    yield m.y[100] == 0.0
-    yield m.u[0] == 0.0
+    yield m.y[100] == 2000.0
+    yield m.u[0] == 0.01
     # yield m.u[100] == 20
     yield m.v[0] == 0.01
     # yield m.v[100] == 30
-    yield m.beta[0] == 3.14 / 180.0 * 89.9
+    yield m.beta[0] == 3.14 / 180.0 * 89.99
     yield ConstraintList.End
 
 
@@ -193,6 +193,7 @@ disc = TransformationFactory("dae.collocation")
 disc.apply_to(md, scheme="LAGRANGE-LEGENDRE")
 
 solver = SolverFactory("ipopt")
+solver.options["max_iter"] = 10000
 results = solver.solve(md)
 # md.display()
 print(results)
@@ -209,10 +210,17 @@ Vm = [md.Vm[i].value for i in md.i]
 Ft = [md.Ft[i].value for i in md.i]
 g = [md.g0[i].value for i in md.i]
 
-print(beta[0] * 180.0 / 3.14)
+tof = []
+for i in md.i:
+    tof.append(i * md.dt.value)
 
-plt.plot(x, y)
+fig0 = plt.figure(1)
+f0 = fig0.add_subplot(111)
+f0.plot(x, y)
+plt.xlabel("range[m]")
+plt.ylabel("altitude[m]")
+plt.grid()
 plt.show()
 
-plt.plot(beta)
-plt.show()
+
+print(md.t_final.value)
