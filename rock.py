@@ -14,9 +14,9 @@ div_size = 100  # Number of divide points
 # Model Definitions
 md = ConcreteModel()  # Concrete model for ODE
 md.N = Param(initialize=div_size)  # Number of divide points
-md.t_final = Var(initialize=30.0, within=PositiveReals)  # Time of Flight
-md.t_sp = Param(initialize=10.0)  #
-md.dt = Var(initialize=0.1, within=PositiveReals)  # Delta T
+md.t_final = Var(initialize=60.0, within=PositiveReals)  # Time of Flight
+md.t_sp = Param(initialize=15.0)  #
+md.dt = Var(initialize=0.01, within=PositiveReals)  # Delta T
 
 
 # Defining relations of time and divide points num.
@@ -38,13 +38,13 @@ def i_init(m):
 
 md.i = Set(initialize=i_init, ordered=True)
 
-md.x = Var(md.i, initialize=0.0, bounds=(0.0, 10000))
+md.x = Var(md.i, initialize=0.0, bounds=(0.0, 50000))
 md.y = Var(md.i, initialize=0.0, bounds=(0.0, 20000))
 md.beta = Var(md.i, initialize=89.99 * 3.14 / 180.0, bounds=(-89.999 * 3.14 / 180.0, 89.999 * 3.14 / 180.0))
 md.u = Var(md.i, initialize=10.0, bounds=(0.0, 1e23))
 md.v = Var(md.i, initialize=10.0, bounds=(-1000.0, 1000.0))
 md.Ft = Var(md.i, initialize=0.0, bounds=(0.0, 1e23))
-md.Isp = Var(md.i, initialize=200.0, bounds=(200.0, 200.0))
+md.Isp = Var(md.i, initialize=300.0, bounds=(299.0, 301.0))
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
 md.mass = Var(md.i, initialize=50.0, bounds=(250.0, 500.0))
 md.delta_mass = Var(md.i, initialize=15.0, bounds=(0.0, 15.0))  # mass fluctuation
@@ -99,7 +99,7 @@ md.CA_alpha = Param(initialize=0.5)
 md.CN_base = Param(initialize=0.3)
 md.CN_alpha = Param(initialize=1.75)
 md.alpha_max = Param(initialize=10.0)
-md.delta_mass_max = Param(initialize=15.0)
+md.delta_mass_max = Param(initialize=16.7)
 
 md.c0 = Param(initialize=0.5)
 md.zero = Param(initialize=0.0)
@@ -176,7 +176,7 @@ md._ay = Constraint(md.i, rule=ay_rule)
 
 def u_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.u[i] == m.u[i - 1] + m.ax[i] * cos(md.beta[i]) * m.dt
+    return m.u[i] == m.u[i - 1] + m.ax[i] * m.dt
 
 
 md._u = Constraint(md.i, rule=u_rule)
@@ -184,7 +184,7 @@ md._u = Constraint(md.i, rule=u_rule)
 
 def v_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.v[i] == m.v[i - 1] + m.ay[i] * sin(md.beta[i]) * m.dt
+    return m.v[i] == m.v[i - 1] + m.ay[i] * m.dt
 
 
 md._v = Constraint(md.i, rule=v_rule)
@@ -192,7 +192,7 @@ md._v = Constraint(md.i, rule=v_rule)
 
 def x_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.x[i] == m.x[i - 1] + m.u[i] * m.dt
+    return m.x[i] == m.x[i - 1] + m.u[i] * cos(md.beta[i]) * m.dt
 
 
 md._x = Constraint(md.i, rule=x_rule)
@@ -200,7 +200,7 @@ md._x = Constraint(md.i, rule=x_rule)
 
 def y_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.y[i] == m.y[i - 1] + m.v[i] * m.dt
+    return m.y[i] == m.y[i - 1] + m.v[i] * sin(md.beta[i]) * m.dt
 
 
 md._y = Constraint(md.i, rule=y_rule)
@@ -209,9 +209,9 @@ md._y = Constraint(md.i, rule=y_rule)
 # Constraints
 def conlist_rule(m):
     yield m.x[0] == 0
-    yield m.x[100] == 10000
+    yield m.x[100] == 20000.0
     yield m.y[0] == 0.0
-    yield m.y[100] == 5000.0
+    yield m.y[100] == 1000.0
     yield m.u[0] == 0.01
     # yield m.u[100] == 20
     yield m.v[0] == 0.01
@@ -227,7 +227,7 @@ disc = TransformationFactory("dae.collocation")
 disc.apply_to(md, scheme="LAGRANGE-LEGENDRE")
 
 solver = SolverFactory("ipopt")
-solver.options["max_iter"] = 10000
+solver.options["max_iter"] = 20000
 results = solver.solve(md)
 # md.display()
 print(results)
