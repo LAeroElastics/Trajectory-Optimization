@@ -46,12 +46,46 @@ md.v = Var(md.i, initialize=10.0, bounds=(-1000.0, 1000.0))
 md.Ft = Var(md.i, initialize=0.0, bounds=(0.0, 1e23))
 md.Isp = Var(md.i, initialize=200.0, bounds=(200.0, 200.0))
 md.g0 = Var(md.i, initialize=9.8, bounds=(9.8, 9.8))
-md.rho = Var(md.i, initialize=1.2, bounds=(1.2, 1.2))
 md.mass = Var(md.i, initialize=50.0, bounds=(250.0, 500.0))
 md.delta_mass = Var(md.i, initialize=15.0, bounds=(0.0, 15.0))  # mass fluctuation
 md.ax = Var(md.i, initialize=0.0, bounds=(-100.0, 100.0))  # G-limit(Axial)
 md.ay = Var(md.i, initialize=0.0, bounds=(-100.0, 100.0))  # G-limit(Normal)
-md.alpha = Var(md.i, initialize=0.0, bounds=(-10.0 * 3.14 / 180.0, 10.0 * 3.14 / 180.0))
+md.alpha = Var(md.i, initialize=0.0, bounds=(-15.0 * 3.14 / 180.0, 15.0 * 3.14 / 180.0))
+
+# Atmosphere model
+md.T = Var(md.i, initialize=0.0)
+md.p = Var(md.i, initialize=1e5)
+md.rho = Var(md.i, initialize=1.22)
+
+
+def T_rule(m, i):
+    if i == 0: Constraint.Skip
+    if value(md.y[i]) <= 11000.0:
+        return md.T[i] == 15.04 - 0.00649 * value(md.y[i])
+    elif 11000.0 <= value(md.y[i]) <= 25000.0:
+        return md.T[i] == -56.46
+    else:
+        return md.T[i] == -131.21 + 0.00299 * value(md.y[i])
+
+
+def p_rule(m, i):
+    if i == 0: Constraint.Skip
+    if value(md.y[i]) <= 11000.0:
+        return md.p[i] == 101.29 * ((value(md.T[i]) + 273.1) / 288.08) ** 5.256
+    elif 11000.0 <= value(md.y[i]) <= 25000.0:
+        return md.p[i] == 22.65 * exp(1.73 - 0.000157 * value(md.y[i]))
+    else:
+        return md.p[i] == 2.488 * ((value(md.T[md]) + 273.1) / 216.6) ** -11.388
+
+
+def rho_rule(m, i):
+    if i == 0: Constraint.Skip
+    return md.rho[i] == value(md.p[i]) / (0.2869 * (value(md.T[i]) + 273.1))
+
+
+md.Tcon = Constraint(md.i, rule=T_rule)
+md.pcon = Constraint(md.i, rule=p_rule)
+md.rhocon = Constraint(md.i, rule=rho_rule)
 
 # Objective Function
 md.obj = Objective(expr=md.t_final, sense=minimize)
@@ -142,7 +176,7 @@ md._ay = Constraint(md.i, rule=ay_rule)
 
 def u_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.u[i] == m.u[i - 1] + m.ax[i] * m.dt
+    return m.u[i] == m.u[i - 1] + m.ax[i] * cos(md.beta[i]) * m.dt
 
 
 md._u = Constraint(md.i, rule=u_rule)
@@ -150,7 +184,7 @@ md._u = Constraint(md.i, rule=u_rule)
 
 def v_rule(m, i):
     if i == 0: return Constraint.Skip
-    return m.v[i] == m.v[i - 1] + m.ay[i] * m.dt
+    return m.v[i] == m.v[i - 1] + m.ay[i] * sin(md.beta[i]) * m.dt
 
 
 md._v = Constraint(md.i, rule=v_rule)
@@ -177,7 +211,7 @@ def conlist_rule(m):
     yield m.x[0] == 0
     yield m.x[100] == 10000
     yield m.y[0] == 0.0
-    yield m.y[100] == 2000.0
+    yield m.y[100] == 5000.0
     yield m.u[0] == 0.01
     # yield m.u[100] == 20
     yield m.v[0] == 0.01
@@ -222,5 +256,15 @@ plt.ylabel("altitude[m]")
 plt.grid()
 plt.show()
 
-
-print(md.t_final.value)
+fig1 = plt.figure(2)
+f1 = fig1.add_subplot(211)
+f1.plot(tof, u)
+plt.xlabel("time[s]")
+plt.ylabel("Vx[m/s]")
+plt.grid()
+f2 = fig1.add_subplot(212)
+f2.plot(tof, v)
+plt.xlabel("time[s]")
+plt.ylabel("Vy[m/s]")
+plt.grid()
+plt.show()
