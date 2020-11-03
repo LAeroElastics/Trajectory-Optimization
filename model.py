@@ -13,9 +13,12 @@ m.time = t_array
 
 m.options.SENSITIVITY = 0
 
-m.options.CSV_WRITE = 1
+m.options.CSV_WRITE = 2
 m.options.CSV_READ = 1
 
+print(m._path)
+
+m.options.SCALING = 1
 m.options.NODES = 50
 m.options.SOLVER = 3
 m.options.IMODE = 6
@@ -25,42 +28,41 @@ m.options.DIAGLEVEL = 0
 m.options.REDUCE = 0
 
 g = 9.8
-S = 0.5
+S = 0.05
 m0 = 600
 mp0 = 550
-tsp = 20
+tsp = 50
 Isp = 300
 
-tf = m.CV(value=200, lb=0.)
+tf = m.CV(value=180, lb=0.)
 tf.STATUS = 1
 
-alpha = m.MV(value=0, lb=-20 * d2r, ub=20 * d2r)
+alpha = m.MV(value=0.0, lb=-20 * d2r, ub=20 * d2r)
 alpha.STATUS = 1
 
-x = m.Var(value=0.0, lb=0.)
-y = m.Var(value=0.0, lb=0.)
-v = m.Var(value=0.0, lb=0.)  # , ub=1000.)
+x = m.Var(value=0., lb=0.)
+y = m.Var(value=0., lb=0.)
+v = m.Var(value=0., lb=0.)  # , ub=1000.)
 
-gam = m.Var(value=90., lb=-180. * d2r, ub=180. * d2r)
-mass = m.Var(value=m0, lb=m0-mp0, ub=m0)
+gam = m.Var(value=89.9 * d2r, lb=-180. * d2r, ub=180. * d2r)
+mass = m.Var(value=m0)#, lb=m0-mp0, ub=m0)
 
 tave = mp0 * Isp * g / tsp
 step = [0 if z > tsp else tave for z in t_array * tf.value]
-#step = [0 if z > tsp/nt else tave for z in t_array]
 ft = m.Param(value=step)
 
-rho = m.Intermediate( 1.2205611857638659 * m.exp(-0.00009107790874911096 * y + -1.8783521651107734e-9 * y**2 ))
-q = m.Intermediate(0.5 * rho * v * v)
+rho = m.Intermediate( 1.22 * m.exp(-0.000091 * y + -1.88e-9 * y**2 ))
+q = m.Intermediate(0.5 * rho * v ** 2.)
 
-cd0 = m.Var(value=0.01)
+cd0 = m.Var(value=0.02)
 cdf = m.Var(value=0.5)
 cna = m.Var(value=0.2)
 
 cs = m.Intermediate(-0.00117 * y + 340.288)
-mn = m.Var()
+mn = m.Var(value=0.0)
 m.Equation(mn == v / cs)
 
-t_mn = [0.3, 0.5, 0.9, 1.2, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 10.0]
+t_mn = [0.3, 0.5, 0.9, 1.2, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
 t_cd0 = [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
 t_cdf = [0.5, 0.6, 0.7, 0.8, 0.65, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2]
 t_cna = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2]
@@ -69,7 +71,7 @@ m.cspline(mn, cd0, t_mn, t_cd0, True)
 m.cspline(mn, cdf, t_mn, t_cdf, True)
 m.cspline(mn, cna, t_mn, t_cdf, True)
 
-ca = m.Intermediate(cd0 + cdf)
+ca = m.Intermediate(cd0 + cdf * 0.1)
 cn = m.Intermediate(cna * alpha)
 fa = m.Intermediate(q * ca * S)
 fn = m.Intermediate(q * cn * S)
@@ -80,19 +82,16 @@ m.Equation(y.dt() == tf * v * m.sin(gam))
 fg_x = m.Intermediate(g * m.cos(gam))
 fg_y = m.Intermediate(g * m.sin(gam))
 
-ft_x = m.Intermediate(ft * m.cos(alpha))
-ft_y = m.Intermediate(ft * m.sin(alpha))
-
-m.Equation(v.dt() * mass == tf * ft_x - tf * fa)
-m.Equation(gam.dt() * mass * v == tf * ft_y + tf * fn - tf * mass * fg_x)
+m.Equation(v.dt() * mass == tf * ft - tf * fa - tf * mass * fg_y)
+m.Equation(gam.dt() * mass * v == tf * fn - tf * mass * fg_x)
 m.Equation(mass.dt() * g * Isp == -tf * ft)
 
 m.fix_initial(mass, val=m0)
 m.fix_initial(x, val=0.0)
 m.fix_initial(y, val=0.0)
 
-#m.fix_final(x, val=10000.)
-m.fix_final(y, val=10000)
+#m.fix_final(x, val=20000.)
+m.fix_final(y, val=50000)
 
 m.fix_initial(v, val=0)
 #m.fix_final(v,val=295.)
@@ -103,7 +102,7 @@ m.fix_initial(alpha, val=0.)
 #m.fix(gam, pos=len(m.time)-1, val=45. * d2r)
 # m.fix(m.alpha, pos=len(m.time)-1, val=0.)
 
-m.Obj(tf)
+m.Minimize(tf)
 #m.Obj(-y)
 
 m.options.COLDSTART = 2
@@ -111,6 +110,7 @@ m.solve(disp=True)
 
 m.options.COLDSTART = 0
 m.options.TIME_SHIFT = 0
+
 m.solve(disp=True)
 
 tm = m.time * tf.value[0]
