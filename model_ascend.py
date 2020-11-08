@@ -13,10 +13,6 @@ nt = 51
 t_array = np.linspace(0, 1, nt)
 m.time = t_array
 
-p = np.zeros(nt)
-p[-1] = 1.0
-final = m.Param(value=p)
-
 m.options.SENSITIVITY = 0
 
 m.options.CSV_WRITE = 2
@@ -37,7 +33,7 @@ g = 9.8
 S = 0.05
 m0 = 600
 mp0 = 550
-tsp = 20.0
+tsp = 5
 Isp = 300
 
 tf = m.CV(value=200, lb=0.)
@@ -77,8 +73,8 @@ m.cspline(mn, cd0, t_mn, t_cd0, True)
 m.cspline(mn, cdf, t_mn, t_cdf, True)
 m.cspline(mn, cna, t_mn, t_cdf, True)
 
-ca = m.Intermediate(cd0 + cdf * 0.68)
-cn = m.Intermediate(cna * 8.1 * alpha)
+ca = m.Intermediate(cd0 + cdf * 0.1)
+cn = m.Intermediate(cna * 10. * alpha)
 fa = m.Intermediate(q * ca * S)
 fn = m.Intermediate(q * cn * S)
 
@@ -96,8 +92,8 @@ m.fix_initial(mass, val=m0)
 m.fix_initial(x, val=0.0)
 m.fix_initial(y, val=0.0)
 
-#m.fix_final(x, val=200000.)
-m.fix_final(y, val=1000)
+#m.fix_final(x, val=300000.)
+m.fix_final(y, val=10000)
 
 m.fix_initial(v, val=0)
 #m.fix_final(v,val=295.)
@@ -105,8 +101,8 @@ m.fix_initial(v, val=0)
 m.fix_initial(gam, val=90.0 * d2r)
 #m.fix_initial(alpha, val=0.)
 
-m.Equation(x*final >= 0)
-#m.Equation(v*final >= 0.)
+#m.fix(gam, pos=len(m.time)-1, val=45. * d2r)
+# m.fix(m.alpha, pos=len(m.time)-1, val=0.)
 
 m.Minimize(tf)
 #m.Obj(-y)

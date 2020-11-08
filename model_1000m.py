@@ -13,7 +13,7 @@ nt = 51
 t_array = np.linspace(0, 1, nt)
 m.time = t_array
 
-p = np.zeros(nt)
+p = np.zeros(nt) # mark final time point
 p[-1] = 1.0
 final = m.Param(value=p)
 
